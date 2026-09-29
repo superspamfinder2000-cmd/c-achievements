@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD QUEST — Gamified Engineering Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cad: {
+                            bg: '#0d1117',
+                            card: '#161b22',
+                            border: '#21262d',
+                            cyan: '#00f2fe',
+                            cyanGlow: 'rgba(0, 242, 254, 0.15)',
+                            purple: '#7928ca',
+                            accent: '#00d2ff',
+                            gold: '#ffd700',
+                            silver: '#c0c0c0',
+                            bronze: '#cd7f32'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom Blueprint Grid & HUD Styles -->
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            background-image: 
+                radial-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 0),
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 24px 24px, 48px 48px, 48px 48px;
+            background-position: -1px -1px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .hud-border {
+            border: 1px solid #21262d;
+            position: relative;
+        }
+
+        .hud-border::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px;
+            width: 8px; height: 8px;
+            border-top: 2px solid #00f2fe;
+            border-left: 2px solid #00f2fe;
+        }
+
+        .hud-border::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; right: -1px;
+            width: 8px; height: 8px;
+            border-bottom: 2px solid #00f2fe;
+            border-right: 2px solid #00f2fe;
+        }
+
+        .hud-corner-tr {
+            position: absolute;
+            top: -1px; right: -1px;
+            width: 8px; height: 8px;
+            border-top: 2px solid #7928ca;
+            border-right: 2px solid #7928ca;
+        }
+
+        .hud-corner-bl {
+            position: absolute;
+            bottom: -1px; left: -1px;
+            width: 8px; height: 8px;
+            border-bottom: 2px solid #7928ca;
+            border-left: 2px solid #7928ca;
+        }
+
+        .cyan-glow {
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+        }
+
+        .cyan-glow-lg {
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.35);
+        }
+
+        .purple-glow {
+            box-shadow: 0 0 15px rgba(121, 40, 202, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #21262d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f2fe;
+        }
+
+        /* Animation Keyframes */
+        @keyframes pulse-cyan {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+        .animate-cyan-pulse {
+            animation: pulse-cyan 3s infinite ease-in-out;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(1000%); }
+        }
+        .scanline {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 242, 254, 0.4), transparent);
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-200 antialiased selection:bg-cad-cyan selection:text-black">
+
+    <div>
+        <!-- Top Tech Bar / Coordinate Readout Header -->
+        <div class="bg-cad-card/90 border-b border-cad-border text-xs font-mono py-1 px-4 flex justify-between items-center text-slate-400 select-none">
+            <div class="flex items-center space-x-4">
+                <span class="flex items-center space-x-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span class="text-emerald-400 font-semibold">CAD TELEMETRY ONLINE</span>
+                </span>
+                <span class="hidden md:inline text-slate-500">|</span>
+                <span class="hidden md:inline">SYSTEM: <span class="text-slate-300">SOLIDWORKS 2026 / DATABRICKS SYNC</span></span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="hidden sm:inline">VIEWPORT: <span id="coordinate-readout" class="text-cad-cyan">X: 124.58 Y: -89.12 Z: 45.00</span></span>
+                <span class="text-slate-500">|</span>
+                <span class="text-slate-300"><i class="fa-solid fa-clock-rotate-left text-cad-cyan mr-1"></i> Data synced: Today 08:00 AM</span>
+            </div>
+        </div>
+
+        <!-- Main Header Navigation -->
+        <header class="bg-cad-card border-b border-cad-border sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+                
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cad-cyan to-cad-purple p-[1px] flex items-center justify-center shadow-lg cyan-glow">
+                        <div class="w-full h-full bg-cad-bg rounded-[7px] flex items-center justify-center">
+                            <i class="fa-solid fa-cube text-cad-cyan text-xl"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-extrabold text-xl tracking-wider text-white font-mono">CAD<span class="text-cad-cyan">QUEST</span></span>
+                            <span class="bg-cad-cyan/10 border border-cad-cyan/30 text-cad-cyan text-[10px] font-mono px-1.5 py-0.5 rounded uppercase">v1.2 MVP</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 font-mono tracking-tight hidden sm:block">INTERNAL DOGFOODING & SKILL EXPANSION ENGINE</p>
+                    </div>
+                </div>
+
+                <!-- Global Search -->
+                <div class="flex-1 max-w-md hidden md:block">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+                        <input type="text" id="global-search" oninput="handleSearch(this.value)" placeholder="Search achievements, tools, or engineers..." 
+                            class="w-full bg-cad-bg border border-cad-border rounded-lg pl-9 pr-4 py-1.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cad-cyan focus:ring-1 focus:ring-cad-cyan transition-all font-mono">
+                    </div>
+                </div>
+
+                <!-- Right Actions & Profile Switcher -->
+                <div class="flex items-center space-x-3">
+                    <!-- Audio Toggle -->
+                    <button onclick="toggleAudio()" id="audio-btn" title="Toggle SFX Feedback" class="p-2 rounded-lg border border-cad-border bg-cad-bg hover:border-slate-600 text-slate-400 hover:text-cad-cyan transition-all">
+                        <i class="fa-solid fa-volume-high text-sm"></i>
+                    </button>
+
+                    <!-- Databricks Inspector Modal Toggle -->
+                    <button onclick="openDataModal()" class="flex items-center space-x-2 bg-cad-bg border border-cad-border hover:border-cad-cyan px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300 hover:text-cad-cyan transition-all">
+                        <i class="fa-solid fa-database text-cad-cyan"></i>
+                        <span class="hidden sm:inline">Databricks Data</span>
+                    </button>
+
+                    <!-- User Profile Selector Dropdown -->
+                    <div class="relative">
+                        <select id="user-select" onchange="switchUser(this.value)" class="bg-cad-bg border border-cad-cyan/50 text-slate-200 font-mono text-xs rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-cad-cyan cursor-pointer transition-all shadow-sm">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative">
+            <div class="scanline"></div>
+
+            <section id="user-hero" class="hud-border bg-cad-card p-6 rounded-xl relative overflow-hidden shadow-xl">
+                <div class="hud-corner-tr"></div>
+                <div class="hud-corner-bl"></div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    
+                    <!-- Avatar & User Title Info (5 Cols) -->
+                    <div class="lg:col-span-5 flex items-center space-x-5">
+                        <div class="relative">
+                            <div class="w-20 h-20 rounded-xl bg-gradient-to-tr from-cad-purple via-slate-800 to-cad-cyan p-[2px] shadow-lg">
+                                <img id="user-avatar" src="" alt="Avatar" class="w-full h-full rounded-[10px] object-cover bg-cad-bg">
+                            </div>
+                            <span id="user-level-badge" class="absolute -bottom-2 -right-2 bg-gradient-to-r from-cad-cyan to-blue-600 text-black font-black text-xs font-mono px-2 py-0.5 rounded-full border border-black shadow">
+                                LVL 12
+                            </span>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h1 id="user-name" class="text-2xl font-bold text-white tracking-tight">--</h1>
+                                <span id="user-dept-tag" class="bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono px-2 py-0.5 rounded-full">
+                                    --
+                                </span>
+                            </div>
+                            <p id="user-role" class="text-sm text-cad-cyan font-mono mt-0.5">--</p>
+                            <div class="flex items-center space-x-3 mt-2 text-xs font-mono text-slate-400">
+                                <span><i class="fa-solid fa-fire text-orange-500 mr-1"></i><span id="user-streak">--</span> Day CAD Streak</span>
+                                <span>•</span>
+                                <span><i class="fa-solid fa-trophy text-cad-gold mr-1"></i><span id="user-achievements-count">0/8</span> Trophies</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Level & XP Progress Engine (7 Cols) -->
+                    <div class="lg:col-span-7 bg-cad-bg/60 p-4 rounded-lg border border-cad-border space-y-3">
+                        <div class="flex justify-between items-end text-xs font-mono">
+                            <div>
+                                <span class="text-slate-400">XP PROGRESSION</span>
+                                <div id="user-xp-text" class="text-base font-bold text-white mt-0.5">1,840 / 2,200 XP</div>
+                            </div>
+                            <div class="text-right">
+                                <span id="user-xp-percentage" class="text-cad-cyan font-bold text-sm">83.6%</span>
+                                <div id="user-next-level" class="text-[10px] text-slate-400">Next Level: LVL 13</div>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-800 relative">
+                            <div id="user-xp-bar" class="h-full bg-gradient-to-r from-cad-purple via-cad-accent to-cad-cyan rounded-full transition-all duration-1000 cyan-glow" style="width: 83.6%;"></div>
+                        </div>
+
+                        <!-- Mini Stats Grid -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-cad-border/50 text-center font-mono">
+                            <div class="bg-cad-card/80 p-2 rounded border border-cad-border/40">
+                                <div class="text-[10px] text-slate-400 uppercase">Tools Used</div>
+                                <div id="stat-tools" class="text-sm font-bold text-slate-200 mt-0.5">34 / 50</div>
+                            </div>
+                            <div class="bg-cad-card/80 p-2 rounded border border-cad-border/40">
+                                <div class="text-[10px] text-slate-400 uppercase">Efficiency Score</div>
+                                <div id="stat-efficiency" class="text-sm font-bold text-emerald-400 mt-0.5">92%</div>
+                            </div>
+                            <div class="bg-cad-card/80 p-2 rounded border border-cad-border/40">
+                                <div class="text-[10px] text-slate-400 uppercase">Models Repaired</div>
+                                <div id="stat-fixed" class="text-sm font-bold text-cad-cyan mt-0.5">14</div>
+                            </div>
+                            <div class="bg-cad-card/80 p-2 rounded border border-cad-border/40">
+                                <div class="text-[10px] text-slate-400 uppercase">Feature Economy</div>
+                                <div id="stat-economy" class="text-sm font-bold text-purple-400 mt-0.5">+24%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-crosshairs text-cad-cyan text-lg"></i>
+                        <h2 class="text-lg font-bold text-white tracking-wide uppercase font-mono">Active CAD Quests</h2>
+                    </div>
+                    <span class="text-xs font-mono text-slate-400">Resets in: <span class="text-cad-cyan font-semibold">3d 14h 22m</span></span>
+                </div>
+
+                <div id="challenges-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Dynamic Challenges dynamically injected -->
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-award text-cad-purple text-lg"></i>
+                        <h2 class="text-lg font-bold text-white tracking-wide uppercase font-mono">Achievements Gallery</h2>
+                    </div>
+
+                    <!-- Achievement Filter Tabs -->
+                    <div class="flex bg-cad-card p-1 rounded-lg border border-cad-border text-xs font-mono self-start sm:self-auto">
+                        <button onclick="filterAchievements('all')" id="tab-all" class="achieve-tab active px-3 py-1 rounded-md text-cad-cyan bg-cad-bg border border-cad-cyan/30 font-semibold transition-all">
+                            All (<span id="count-all">0</span>)
+                        </button>
+                        <button onclick="filterAchievements('unlocked')" id="tab-unlocked" class="achieve-tab px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all">
+                            Unlocked (<span id="count-unlocked">0</span>)
+                        </button>
+                        <button onclick="filterAchievements('locked')" id="tab-locked" class="achieve-tab px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all">
+                            Locked (<span id="count-locked">0</span>)
+                        </button>
+                        <button onclick="filterAchievements('hidden')" id="tab-hidden" class="achieve-tab px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all">
+                            Classified
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Achievements Grid -->
+                <div id="achievements-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Dynamically rendered -->
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-ranking-star text-cad-gold text-lg"></i>
+                        <h2 class="text-lg font-bold text-white tracking-wide uppercase font-mono">Engineering Leaderboard</h2>
+                    </div>
+
+                    <!-- Department Selector Filter -->
+                    <div class="flex items-center space-x-2 text-xs font-mono">
+                        <span class="text-slate-400">Department:</span>
+                        <select id="dept-filter" onchange="renderLeaderboard()" class="bg-cad-card border border-cad-border text-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cad-cyan cursor-pointer">
+                            <option value="ALL">All Divisions</option>
+                            <option value="Automotive R&D">Automotive R&D</option>
+                            <option value="Powertrain & Chassis">Powertrain & Chassis</option>
+                            <option value="Ergonomics">Ergonomics</option>
+                            <option value="Aerodynamics">Aerodynamics</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Top 3 Podium Cards -->
+                <div id="podium-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <!-- Dynamic Podium cards for 1st, 2nd, 3rd -->
+                </div>
+
+                <!-- Full Leaderboard Table -->
+                <div class="hud-border bg-cad-card rounded-xl overflow-hidden shadow-lg">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-cad-bg/90 border-b border-cad-border font-mono text-xs text-slate-400 uppercase">
+                                <tr>
+                                    <th class="py-3 px-4 w-16 text-center">Rank</th>
+                                    <th class="py-3 px-4">Engineer</th>
+                                    <th class="py-3 px-4">Level</th>
+                                    <th class="py-3 px-4">Total XP</th>
+                                    <th class="py-3 px-4 hidden sm:table-cell">Top Specialization</th>
+                                    <th class="py-3 px-4 text-right">Weekly Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body" class="divide-y divide-cad-border/60 font-mono text-xs">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="bg-cad-card border-t border-cad-border mt-12 py-6 text-center text-xs text-slate-500 font-mono space-y-2">
+        <p>CAD QUEST v1.2 — Internal Engineering Gamification Prototype</p>
+        <p class="text-[11px] text-slate-600">Powered by Static JSON • Databricks Telemetry Sync • GitHub Pages Compatible</p>
+    </footer>
+
+    
+    <!-- Achievement Detail Modal -->
+    <div id="achievement-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-cad-card border border-cad-cyan/50 hud-border rounded-xl max-w-md w-full p-6 relative shadow-2xl space-y-4">
+            <button onclick="closeModal('achievement-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex items-start space-x-4">
+                <div id="modal-icon-container" class="w-14 h-14 rounded-lg bg-cad-bg border border-cad-cyan flex items-center justify-center text-2xl text-cad-cyan flex-shrink-0">
+                    <i id="modal-icon" class="fa-solid fa-trophy"></i>
+                </div>
+                <div>
+                    <div id="modal-status-tag" class="text-[10px] font-mono px-2 py-0.5 rounded uppercase font-bold inline-block bg-cad-cyan/20 text-cad-cyan border border-cad-cyan/40">
+                        UNLOCKED
+                    </div>
+                    <h3 id="modal-title" class="text-xl font-bold text-white mt-1">--</h3>
+                    <p id="modal-xp" class="text-xs font-mono text-cad-cyan mt-0.5">+250 XP</p>
+                </div>
+            </div>
+            
+            <div class="space-y-3 pt-2 text-xs">
+                <div>
+                    <span class="text-slate-400 font-mono uppercase block text-[10px]">Description</span>
+                    <p id="modal-desc" class="text-slate-200 mt-0.5">--</p>
+                </div>
+                <div>
+                    <span class="text-slate-400 font-mono uppercase block text-[10px]">Databricks Trigger Criteria</span>
+                    <div id="modal-trigger" class="bg-cad-bg p-3 rounded border border-cad-border text-slate-300 font-mono text-[11px] mt-0.5">
+                        --
+                    </div>
+                </div>
+                <div>
+                    <span class="text-slate-400 font-mono uppercase block text-[10px]">Telemetry Usage Snapshot</span>
+                    <p id="modal-usage" class="text-emerald-400 font-mono mt-0.5">--</p>
+                </div>
+            </div>
+
+            <div class="pt-2 text-right">
+                <button onclick="closeModal('achievement-modal')" class="bg-cad-cyan/10 border border-cad-cyan text-cad-cyan hover:bg-cad-cyan hover:text-black font-mono text-xs px-4 py-2 rounded-lg transition-all">
+                    Acknowledge
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Challenge Modal -->
+    <div id="challenge-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-cad-card border border-cad-purple/50 hud-border rounded-xl max-w-md w-full p-6 relative shadow-2xl space-y-4">
+            <button onclick="closeModal('challenge-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-cad-purple/20 border border-cad-purple flex items-center justify-center text-cad-purple text-xl">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <div>
+                    <h3 id="challenge-modal-title" class="text-lg font-bold text-white">--</h3>
+                    <span id="challenge-modal-reward" class="text-xs font-mono text-cad-cyan">+250 XP</span>
+                </div>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <span class="text-slate-400 font-mono uppercase text-[10px]">Objective Brief</span>
+                    <p id="challenge-modal-desc" class="text-slate-200 mt-0.5">--</p>
+                </div>
+                <div>
+                    <span class="text-slate-400 font-mono uppercase text-[10px]">How Databricks Validates This</span>
+                    <div id="challenge-modal-validation" class="bg-cad-bg p-3 rounded border border-cad-border text-slate-300 font-mono text-[11px] mt-0.5">
+                        --
+                    </div>
+                </div>
+            </div>
+            <div class="pt-2 text-right">
+                <button onclick="closeModal('challenge-modal')" class="bg-cad-purple/20 border border-cad-purple text-purple-300 hover:bg-cad-purple hover:text-white font-mono text-xs px-4 py-2 rounded-lg transition-all">
+                    Got It
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Databricks Simulator JSON Modal -->
+    <div id="databricks-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-cad-card border border-cad-border hud-border rounded-xl max-w-2xl w-full p-6 relative shadow-2xl space-y-4">
+            <button onclick="closeModal('databricks-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="flex items-center space-x-3 border-b border-cad-border pb-3">
+                <i class="fa-solid fa-database text-cad-cyan text-xl"></i>
+                <div>
+                    <h3 class="text-base font-bold text-white font-mono">Databricks JSON Data Engine</h3>
+                    <p class="text-xs text-slate-400">Simulate daily <code class="text-cad-cyan">leaderboard.json</code> export pipeline</p>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-300">
+                In your production MVP, your daily Databricks SQL query exports this exact JSON structure directly to your static project folder (<code class="text-cad-cyan">leaderboard.json</code>). You can edit or inspect the raw data below:
+            </p>
+
+            <textarea id="json-editor" class="w-full h-64 bg-cad-bg border border-cad-border rounded-lg p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-cad-cyan selection:bg-slate-700"></textarea>
+
+            <div class="flex justify-between items-center pt-2">
+                <button onclick="copyJsonToClipboard()" class="bg-cad-bg border border-cad-border text-slate-300 hover:border-cad-cyan hover:text-cad-cyan font-mono text-xs px-3 py-1.5 rounded-lg transition-all">
+                    <i class="fa-solid fa-copy mr-1"></i> Copy JSON
+                </button>
+                <div class="space-x-2">
+                    <button onclick="resetDataToDefault()" class="bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono text-xs px-3 py-1.5 rounded-lg transition-all">
+                        Reset Default
+                    </button>
+                    <button onclick="applyCustomJson()" class="bg-cad-cyan text-black font-mono font-bold text-xs px-4 py-1.5 rounded-lg hover:bg-white transition-all shadow">
+                        Apply Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default Mock Data matching user specifications & Databricks telemetry
+        const DEFAULT_APP_DATA = {
+            syncTime: "Today 08:00 AM via Databricks",
+            users: [
+                {
+                    id: "usr_alex",
+                    name: "Alex Vance",
+                    role: "Senior Surface Modeler",
+                    department: "Automotive R&D",
+                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+                    level: 12,
+                    xp: 1840,
+                    nextLevelXp: 2200,
+                    streakDays: 5,
+                    toolsDiscovered: 34,
+                    maxTools: 50,
+                    efficiencyScore: 92,
+                    modelsFixed: 14,
+                    featureEconomy: "+24%",
+                    weeklyTrend: "+280 XP",
+                    topBadge: "Surface Specialist",
+                    achievements: ["mod_mechanic", "explorer", "tool_frenzy", "feature_econ", "nohint"],
+                    achievementProgress: {
+                        "surface_wiz": { current: 4, total: 6 }
+                    }
+                },
+                {
+                    id: "usr_alice",
+                    name: "Alice Chen",
+                    role: "Lead Mechanical Architect",
+                    department: "Powertrain & Chassis",
+                    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
+                    level: 15,
+                    xp: 2450,
+                    nextLevelXp: 2800,
+                    streakDays: 12,
+                    toolsDiscovered: 48,
+                    maxTools: 50,
+                    efficiencyScore: 97,
+                    modelsFixed: 29,
+                    featureEconomy: "+38%",
+                    weeklyTrend: "+410 XP",
+                    topBadge: "Parametric Master",
+                    achievements: ["mod_mechanic", "explorer", "tool_frenzy", "feature_econ", "nohint", "surface_wiz", "parametric_ninja"]
+                },
+                {
+                    id: "usr_charlie",
+                    name: "Charlie Ross",
+                    role: "Junior CAD Engineer",
+                    department: "Ergonomics",
+                    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+                    level: 9,
+                    xp: 1120,
+                    nextLevelXp: 1400,
+                    streakDays: 3,
+                    toolsDiscovered: 21,
+                    maxTools: 50,
+                    efficiencyScore: 81,
+                    modelsFixed: 5,
+                    featureEconomy: "+12%",
+                    weeklyTrend: "+150 XP",
+                    topBadge: "Rapid Explorer",
+                    achievements: ["explorer", "tool_frenzy"]
+                },
+                {
+                    id: "usr_elena",
+                    name: "Elena Rostova",
+                    role: "CFD & Surface Specialist",
+                    department: "Aerodynamics",
+                    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+                    level: 14,
+                    xp: 2100,
+                    nextLevelXp: 2500,
+                    streakDays: 8,
+                    toolsDiscovered: 42,
+                    maxTools: 50,
+                    efficiencyScore: 94,
+                    modelsFixed: 18,
+                    featureEconomy: "+30%",
+                    weeklyTrend: "+310 XP",
+                    topBadge: "Aero Wizard",
+                    achievements: ["mod_mechanic", "explorer", "tool_frenzy", "surface_wiz"]
+                }
+            ],
+            challenges: [
+                {
+                    id: "ch_missing_pattern",
+                    title: "The Missing Pattern",
+                    subtitle: "Reduce a model from 31 features to fewer than 10 using Pattern & Mirror features.",
+                    rewardXp: 250,
+                    tag: "Featured Challenge",
+                    icon: "fa-cubes-stacked",
+                    validation: "SQL metric detects when a part file history feature count drops by >60% while maintaining identical mass properties."
+                },
+                {
+                    id: "ch_curvature",
+                    title: "Curvature Guru",
+                    subtitle: "Achieve G2 continuous zebra-striped continuity across 3 complex boundary surfaces.",
+                    rewardXp: 180,
+                    tag: "Surface Mastery",
+                    icon: "fa-bezier-curve",
+                    validation: "Triggered when 'Boundary Surface' with G2 Curvature continuous option is evaluated in telemetry logs."
+                }
+            ],
+            achievementsList: [
+                {
+                    id: "mod_mechanic",
+                    title: "Model Mechanic",
+                    icon: "fa-wrench",
+                    category: "repair",
+                    xp: 150,
+                    desc: "Repaired broken features, missing external references, or dangling sketch dimensions.",
+                    trigger: "Triggered by resolving 5+ red/yellow error warnings in the CAD FeatureTree.",
+                    usageSnapshot: "14 broken references healed across 8 parts"
+                },
+                {
+                    id: "explorer",
+                    title: "Explorer",
+                    icon: "fa-compass",
+                    category: "discovery",
+                    xp: 200,
+                    desc: "Discovered and used at least 25 unique CAD tools across different toolbars.",
+                    trigger: "Databricks query aggregates distinct `tool_id` calls over 30 days.",
+                    usageSnapshot: "34 unique tools registered"
+                },
+                {
+                    id: "tool_frenzy",
+                    title: "Tool Frenzy",
+                    icon: "fa-bolt",
+                    category: "speed",
+                    xp: 180,
+                    desc: "Used 10 distinct modeling tools in a single 15-minute window.",
+                    trigger: "High-frequency timestamp analysis of tool execution stream.",
+                    usageSnapshot: "12 distinct tools used in 8 minutes"
+                },
+                {
+                    id: "feature_econ",
+                    title: "Feature Economy",
+                    icon: "fa-bullseye",
+                    category: "efficiency",
+                    xp: 250,
+                    desc: "Built a complex part geometry using fewer than 15 optimized features.",
+                    trigger: "Mass density comparison vs feature tree length.",
+                    usageSnapshot: "Modeled housing bracket in 9 clean features"
+                },
+                {
+                    id: "nohint",
+                    title: "No-Hint Master",
+                    icon: "fa-user-ninja",
+                    category: "skill",
+                    xp: 300,
+                    desc: "Completed an advanced modeling challenge without accessing documentation or help menus.",
+                    trigger: "Zero F1 key or help search queries registered during active challenge session.",
+                    usageSnapshot: "100% independent solution execution"
+                },
+                {
+                    id: "surface_wiz",
+                    title: "Surface Wizard",
+                    icon: "fa-layer-group",
+                    category: "specialist",
+                    xp: 350,
+                    desc: "Mastered Loft, Boundary Surface, Swept Cut, and Fill Surface commands.",
+                    trigger: "Requires 10 successful surface knit operations without zero-thickness geometry errors.",
+                    usageSnapshot: "Progress: 4/6 surface tools mastered"
+                },
+                {
+                    id: "parametric_ninja",
+                    title: "Parametric Ninja",
+                    icon: "fa-link",
+                    category: "quality",
+                    xp: 400,
+                    desc: "Maintained 0 broken sketches and full intent across 20 consecutive models.",
+                    trigger: "Fully defined sketch ratio = 100% on save events.",
+                    usageSnapshot: "20 consecutive clean models verified"
+                },
+                {
+                    id: "classified_secret",
+                    title: "??? Classified Achievement",
+                    icon: "fa-user-secret",
+                    category: "hidden",
+                    xp: 500,
+                    desc: "Secret Easter Egg achievement. Unlocked by discovering an undocumented shortcut key combination or Easter Egg workflow in CAD.",
+                    trigger: "Hidden telemetry trigger: [CLASSIFIED_SQL_RULE]",
+                    usageSnapshot: "Keep exploring CAD features to reveal!"
+                }
+            ]
+        };
+
+        // State variables
+        let appData = JSON.parse(localStorage.getItem('cad_quest_data')) || DEFAULT_APP_DATA;
+        let currentUserId = appData.users[0].id;
+        let activeAchievementFilter = 'all';
+        let searchQuery = '';
+        let audioEnabled = true;
+
+        window.onload = function() {
+            initProfileSelector();
+            renderDashboard();
+            startCoordinateTicker();
+        };
+
+        // Populate Top Right User Switcher Dropdown
+        function initProfileSelector() {
+            const select = document.getElementById('user-select');
+            select.innerHTML = appData.users.map(u => 
+                `<option value="${u.id}" ${u.id === currentUserId ? 'selected' : ''}>${u.name} (LVL ${u.level})</option>`
+            ).join('');
+        }
+
+        // Switch Active View User
+        function switchUser(userId) {
+            currentUserId = userId;
+            renderDashboard();
+            playSfx('switch');
+        }
+
+        // Master Render Call
+        function renderDashboard() {
+            const user = appData.users.find(u => u.id === currentUserId) || appData.users[0];
+
+            // Render Hero Profile
+            document.getElementById('user-avatar').src = user.avatar;
+            document.getElementById('user-name').innerText = user.name;
+            document.getElementById('user-dept-tag').innerText = user.department;
+            document.getElementById('user-role').innerText = user.role;
+            document.getElementById('user-level-badge').innerText = `LVL ${user.level}`;
+            document.getElementById('user-streak').innerText = user.streakDays;
+            document.getElementById('user-achievements-count').innerText = `${user.achievements.length}/${appData.achievementsList.length}`;
+
+            // XP calculations
+            const xpPct = Math.min(100, ((user.xp / user.nextLevelXp) * 100)).toFixed(1);
+            document.getElementById('user-xp-text').innerText = `${user.xp.toLocaleString()} / ${user.nextLevelXp.toLocaleString()} XP`;
+            document.getElementById('user-xp-percentage').innerText = `${xpPct}%`;
+            document.getElementById('user-xp-bar').style.width = `${xpPct}%`;
+            document.getElementById('user-next-level').innerText = `Next Level: LVL ${user.level + 1}`;
+
+            // Quick Stats
+            document.getElementById('stat-tools').innerText = `${user.toolsDiscovered} / ${user.maxTools}`;
+            document.getElementById('stat-efficiency').innerText = `${user.efficiencyScore}%`;
+            document.getElementById('stat-fixed').innerText = user.modelsFixed;
+            document.getElementById('stat-economy').innerText = user.featureEconomy;
+
+            // Render Subsections
+            renderChallenges();
+            renderAchievements();
+            renderLeaderboard();
+        }
+
+        function renderChallenges() {
+            const container = document.getElementById('challenges-grid');
+            container.innerHTML = appData.challenges.map(ch => `
+                <div class="hud-border bg-cad-card p-4 rounded-xl flex flex-col justify-between hover:border-cad-cyan/50 transition-all group">
+                    <div class="hud-corner-tr"></div>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="bg-cad-purple/20 text-cad-purple border border-cad-purple/40 text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase">
+                                ${ch.tag}
+                            </span>
+                            <span class="text-cad-cyan font-mono font-bold text-xs flex items-center">
+                                <i class="fa-solid fa-bolt mr-1"></i> +${ch.rewardXp} XP
+                            </span>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white group-hover:text-cad-cyan transition-colors">${ch.title}</h3>
+                            <p class="text-xs text-slate-300 mt-1 leading-relaxed">${ch.subtitle}</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 mt-2 border-t border-cad-border/60 flex items-center justify-between text-xs font-mono">
+                        <span class="text-slate-400 text-[11px]"><i class="fa-solid fa-robot mr-1 text-slate-500"></i> Databricks SQL Verified</span>
+                        <button onclick="openChallengeModal('${ch.id}')" class="text-cad-cyan hover:underline flex items-center font-semibold">
+                            View Details <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAchievements() {
+            const user = appData.users.find(u => u.id === currentUserId) || appData.users[0];
+            const container = document.getElementById('achievements-grid');
+
+            // Count calculations
+            const unlockedCount = user.achievements.length;
+            const totalCount = appData.achievementsList.length;
+            const lockedCount = totalCount - unlockedCount;
+
+            document.getElementById('count-all').innerText = totalCount;
+            document.getElementById('count-unlocked').innerText = unlockedCount;
+            document.getElementById('count-locked').innerText = lockedCount;
+
+            // Filter logic
+            let filtered = appData.achievementsList.filter(ach => {
+                const isUnlocked = user.achievements.includes(ach.id);
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    return ach.title.toLowerCase().includes(q) || ach.desc.toLowerCase().includes(q);
+                }
+                if (activeAchievementFilter === 'unlocked') return isUnlocked;
+                if (activeAchievementFilter === 'locked') return !isUnlocked && ach.category !== 'hidden';
+                if (activeAchievementFilter === 'hidden') return ach.category === 'hidden';
+                return true;
+            });
+
+            container.innerHTML = filtered.map(ach => {
+                const isUnlocked = user.achievements.includes(ach.id);
+                const isHidden = ach.category === 'hidden' && !isUnlocked;
+
+                if (isHidden) {
+                    return `
+                        <div class="bg-cad-card/40 border border-cad-border/60 rounded-xl p-4 flex flex-col justify-between opacity-80 hover:opacity-100 transition-all relative overflow-hidden group">
+                            <div class="flex items-start space-x-3">
+                                <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 text-lg group-hover:text-cad-purple group-hover:border-cad-purple transition-colors">
+                                    <i class="fa-solid fa-question text-cad-purple animate-pulse"></i>
+                                </div>
+                                <div>
+                                    <span class="bg-purple-950 text-purple-300 text-[9px] font-mono px-1.5 py-0.5 rounded uppercase">CLASSIFIED</span>
+                                    <h4 class="text-sm font-bold text-slate-300 mt-1">??? Classified</h4>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-500 italic mt-3 font-mono">Hidden engineering objective. Keep experimenting in CAD to reveal.</p>
+                            <div class="mt-3 text-right">
+                                <span class="text-xs font-mono text-purple-400 font-semibold">+500 XP</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div onclick="openAchievementModal('${ach.id}')" class="bg-cad-card border ${isUnlocked ? 'border-cad-cyan/40 bg-gradient-to-b from-cad-card to-cad-bg cyan-glow' : 'border-cad-border opacity-70'} rounded-xl p-4 flex flex-col justify-between cursor-pointer hover:border-cad-cyan hover:scale-[1.02] transition-all group relative">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="w-10 h-10 rounded-lg ${isUnlocked ? 'bg-cad-cyan/20 border border-cad-cyan text-cad-cyan' : 'bg-slate-800 border border-slate-700 text-slate-500'} flex items-center justify-center text-lg">
+                                    <i class="fa-solid ${ach.icon}"></i>
+                                </div>
+                                <span class="text-xs font-mono font-bold ${isUnlocked ? 'text-cad-cyan' : 'text-slate-500'}">
+                                    +${ach.xp} XP
+                                </span>
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <h4 class="text-sm font-bold text-white group-hover:text-cad-cyan transition-colors">${ach.title}</h4>
+                                    ${isUnlocked ? '<i class="fa-solid fa-circle-check text-cad-cyan text-xs"></i>' : ''}
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">${ach.desc}</p>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 mt-3 border-t border-cad-border/50 flex items-center justify-between text-[11px] font-mono">
+                            <span class="${isUnlocked ? 'text-cad-cyan font-semibold' : 'text-slate-500'} uppercase">
+                                ${isUnlocked ? 'Unlocked' : 'Locked'}
+                            </span>
+                            <span class="text-slate-500 group-hover:text-slate-300">Details <i class="fa-solid fa-chevron-right text-[9px]"></i></span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterAchievements(filter) {
+            activeAchievementFilter = filter;
+            document.querySelectorAll('.achieve-tab').forEach(btn => {
+                btn.classList.remove('text-cad-cyan', 'bg-cad-bg', 'border', 'border-cad-cyan/30', 'font-semibold');
+                btn.classList.add('text-slate-400');
+            });
+            const activeBtn = document.getElementById(`tab-${filter}`);
+            if (activeBtn) {
+                activeBtn.classList.add('text-cad-cyan', 'bg-cad-bg', 'border', 'border-cad-cyan/30', 'font-semibold');
+                activeBtn.classList.remove('text-slate-400');
+            }
+            renderAchievements();
+        }
+
+        function renderLeaderboard() {
+            const deptFilter = document.getElementById('dept-filter').value;
+            
+            // Sort users by XP descending
+            let sorted = [...appData.users].sort((a, b) => b.xp - a.xp);
+            
+            if (deptFilter !== 'ALL') {
+                sorted = sorted.filter(u => u.department === deptFilter);
+            }
+
+            // Podium rendering (Top 3)
+            const podiumContainer = document.getElementById('podium-container');
+            if (sorted.length >= 3) {
+                const first = sorted[0];
+                const second = sorted[1];
+                const third = sorted[2];
+
+                podiumContainer.innerHTML = `
+                    <!-- 2nd Place -->
+                    <div class="hud-border bg-cad-card p-4 rounded-xl flex flex-col items-center justify-center text-center order-2 md:order-1 border-cad-border">
+                        <div class="relative">
+                            <img src="${second.avatar}" class="w-14 h-14 rounded-full border-2 border-cad-silver object-cover">
+                            <span class="absolute -top-2 -right-2 bg-cad-silver text-black font-extrabold text-[10px] font-mono px-2 py-0.5 rounded-full shadow">#2</span>
+                        </div>
+                        <h4 class="font-bold text-sm text-white mt-2">${second.name}</h4>
+                        <p class="text-xs text-cad-cyan font-mono">${second.xp.toLocaleString()} XP</p>
+                        <span class="text-[10px] text-slate-400 font-mono mt-1">${second.department}</span>
+                    </div>
+
+                    <!-- 1st Place (Champion) -->
+                    <div class="hud-border bg-gradient-to-b from-cad-card to-cad-bg p-5 rounded-xl flex flex-col items-center justify-center text-center order-1 md:order-2 border-cad-gold/50 cyan-glow">
+                        <div class="hud-corner-tr"></div>
+                        <div class="hud-corner-bl"></div>
+                        <div class="relative">
+                            <i class="fa-solid fa-crown text-cad-gold text-lg absolute -top-4 left-1/2 -translate-x-1/2 animate-bounce"></i>
+                            <img src="${first.avatar}" class="w-18 h-18 rounded-full border-2 border-cad-gold object-cover">
+                            <span class="absolute -bottom-1 -right-1 bg-cad-gold text-black font-extrabold text-xs font-mono px-2 py-0.5 rounded-full shadow">#1</span>
+                        </div>
+                        <h4 class="font-bold text-base text-white mt-2">${first.name}</h4>
+                        <p class="text-sm text-cad-gold font-mono font-bold">${first.xp.toLocaleString()} XP</p>
+                        <span class="text-[10px] bg-cad-gold/10 text-cad-gold border border-cad-gold/30 font-mono px-2 py-0.5 rounded mt-1">${first.topBadge}</span>
+                    </div>
+
+                    <!-- 3rd Place -->
+                    <div class="hud-border bg-cad-card p-4 rounded-xl flex flex-col items-center justify-center text-center order-3 border-cad-border">
+                        <div class="relative">
+                            <img src="${third.avatar}" class="w-14 h-14 rounded-full border-2 border-cad-bronze object-cover">
+                            <span class="absolute -top-2 -right-2 bg-cad-bronze text-black font-extrabold text-[10px] font-mono px-2 py-0.5 rounded-full shadow">#3</span>
+                        </div>
+                        <h4 class="font-bold text-sm text-white mt-2">${third.name}</h4>
+                        <p class="text-xs text-cad-cyan font-mono">${third.xp.toLocaleString()} XP</p>
+                        <span class="text-[10px] text-slate-400 font-mono mt-1">${third.department}</span>
+                    </div>
+                `;
+            } else {
+                podiumContainer.innerHTML = '';
+            }
+
+            // Table rendering
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = sorted.map((u, index) => {
+                const rank = index + 1;
+                const isCurrent = u.id === currentUserId;
+
+                return `
+                    <tr class="${isCurrent ? 'bg-cad-cyan/10 border-l-2 border-cad-cyan font-bold' : 'hover:bg-cad-card/60'} transition-colors">
+                        <td class="py-3 px-4 text-center">
+                            ${rank === 1 ? '<i class="fa-solid fa-trophy text-cad-gold"></i>' : 
+                              rank === 2 ? '<i class="fa-solid fa-trophy text-slate-300"></i>' : 
+                              rank === 3 ? '<i class="fa-solid fa-trophy text-amber-700"></i>' : `#${rank}`}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center space-x-3">
+                                <img src="${u.avatar}" class="w-8 h-8 rounded-full object-cover">
+                                <div>
+                                    <div class="text-white font-sans font-medium flex items-center space-x-2">
+                                        <span>${u.name}</span>
+                                        ${isCurrent ? '<span class="text-[9px] bg-cad-cyan text-black px-1.5 rounded font-mono font-bold">YOU</span>' : ''}
+                                    </div>
+                                    <div class="text-[10px] text-slate-400 font-mono">${u.department}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-slate-300">
+                            <span class="bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded text-[11px]">LVL ${u.level}</span>
+                        </td>
+                        <td class="py-3 px-4 font-bold text-cad-cyan">${u.xp.toLocaleString()} XP</td>
+                        <td class="py-3 px-4 hidden sm:table-cell text-slate-400">${u.topBadge}</td>
+                        <td class="py-3 px-4 text-right text-emerald-400 font-bold">${u.weeklyTrend}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openAchievementModal(achId) {
+            const user = appData.users.find(u => u.id === currentUserId) || appData.users[0];
+            const ach = appData.achievementsList.find(a => a.id === achId);
+            if (!ach) return;
+
+            const isUnlocked = user.achievements.includes(ach.id);
+
+            document.getElementById('modal-title').innerText = ach.title;
+            document.getElementById('modal-desc').innerText = ach.desc;
+            document.getElementById('modal-trigger').innerText = ach.trigger;
+            document.getElementById('modal-usage').innerText = ach.usageSnapshot;
+            document.getElementById('modal-xp').innerText = `+${ach.xp} XP`;
+            document.getElementById('modal-icon').className = `fa-solid ${ach.icon}`;
+
+            const tag = document.getElementById('modal-status-tag');
+            if (isUnlocked) {
+                tag.innerText = "UNLOCKED";
+                tag.className = "text-[10px] font-mono px-2 py-0.5 rounded uppercase font-bold inline-block bg-cad-cyan/20 text-cad-cyan border border-cad-cyan/40";
+            } else {
+                tag.innerText = "LOCKED";
+                tag.className = "text-[10px] font-mono px-2 py-0.5 rounded uppercase font-bold inline-block bg-slate-800 text-slate-400 border border-slate-700";
+            }
+
+            document.getElementById('achievement-modal').classList.remove('hidden');
+            playSfx('modal');
+        }
+
+        function openChallengeModal(chId) {
+            const ch = appData.challenges.find(c => c.id === chId);
+            if (!ch) return;
+
+            document.getElementById('challenge-modal-title').innerText = ch.title;
+            document.getElementById('challenge-modal-reward').innerText = `+${ch.rewardXp} XP`;
+            document.getElementById('challenge-modal-desc').innerText = ch.subtitle;
+            document.getElementById('challenge-modal-validation').innerText = ch.validation;
+
+            document.getElementById('challenge-modal').classList.remove('hidden');
+            playSfx('modal');
+        }
+
+        function openDataModal() {
+            document.getElementById('json-editor').value = JSON.stringify(appData, null, 2);
+            document.getElementById('databricks-modal').classList.remove('hidden');
+            playSfx('modal');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function applyCustomJson() {
+            try {
+                const parsed = JSON.parse(document.getElementById('json-editor').value);
+                appData = parsed;
+                localStorage.setItem('cad_quest_data', JSON.stringify(appData));
+                initProfileSelector();
+                renderDashboard();
+                closeModal('databricks-modal');
+                alert('JSON data updated successfully!');
+            } catch (err) {
+                alert('Invalid JSON structure. Please verify syntax.');
+            }
+        }
+
+        function resetDataToDefault() {
+            appData = DEFAULT_APP_DATA;
+            localStorage.removeItem('cad_quest_data');
+            document.getElementById('json-editor').value = JSON.stringify(DEFAULT_APP_DATA, null, 2);
+            initProfileSelector();
+            renderDashboard();
+            alert('Reset data back to default template.');
+        }
+
+        function copyJsonToClipboard() {
+            const text = document.getElementById('json-editor').value;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('leaderboard.json contents copied to clipboard!');
+        }
+
+        // Global Search
+        function handleSearch(val) {
+            searchQuery = val;
+            renderAchievements();
+        }
+
+        // Ticker for Live Tech Feel
+        function startCoordinateTicker() {
+            setInterval(() => {
+                const x = (120 + Math.random() * 5).toFixed(2);
+                const y = (-85 - Math.random() * 5).toFixed(2);
+                const z = (40 + Math.random() * 10).toFixed(2);
+                const el = document.getElementById('coordinate-readout');
+                if (el) el.innerText = `X: ${x} Y: ${y} Z: ${z}`;
+            }, 1500);
+        }
+
+        // Simple Audio Synthesizer (No external Audio Files)
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('audio-btn');
+            btn.classList.toggle('text-cad-cyan', audioEnabled);
+            btn.classList.toggle('text-slate-600', !audioEnabled);
+        }
+
+        function playSfx(type) {
+            if (!audioEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'switch') {
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.1);
+                } else if (type === 'modal') {
+                    osc.frequency.setValueAtTime(300, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.15);
+                }
+            } catch (e) {
+                // Audio Context unavailable
+            }
+        }
+    </script>
+</body>
+</html>
